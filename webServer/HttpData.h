@@ -1,3 +1,5 @@
+// @Author Lin Ya
+// @Email xxbbb@vip.qq.com
 #pragma once
 #include <sys/epoll.h>
 #include <unistd.h>
@@ -7,8 +9,12 @@
 #include <string>
 #include <unordered_map>
 #include "Timer.h"
+#include "base/redis.h"
+#include <fcntl.h>
 
+#include <sys/stat.h>
 
+using namespace std;
 class EventLoop;
 class TimerNode;
 class Channel;
@@ -109,4 +115,10 @@ class HttpData : public std::enable_shared_from_this<HttpData> {
   URIState parseURI();
   HeaderState parseHeaders();
   AnalysisState analysisRequest();
+
+  //新添加的============begin===================
+  bool parseBody(string& text);
+  map<string, string> m_map;
+  struct stat m_file_stat;
+//新添加的============end===================
 };

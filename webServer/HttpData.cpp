@@ -1,3 +1,5 @@
+// @Author Lin Ya
+// @Email xxbbb@vip.qq.com
 #include "HttpData.h"
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -7,6 +9,13 @@
 #include "EventLoop.h"
 #include "Util.h"
 #include "time.h"
+#include <iostream>
+#include<sys/uio.h>
+#include <unistd.h>
+
+//todo 测试使用
+static int test_index=0;
+
 
 using namespace std;
 
@@ -151,6 +160,7 @@ void HttpData::seperateTimer() {
 }
 
 void HttpData::handleRead() {
+//handleRead：begin---->收到消息，开始读取消息进行解析------------------
   __uint32_t &events_ = channel_->getEvents();
   do {
     bool zero = false;
@@ -167,11 +177,11 @@ void HttpData::handleRead() {
       handleError(fd_, 400, "Bad Request");
       break;
     }
-    // else if (read_num == 0)
-    // {
-    //     error_ = true;
-    //     break;
-    // }
+    else if (read_num == 0)
+    {
+        error_ = true;
+         break;
+    }
     else if (zero) {
       // 有请求出现但是读不到数据，可能是Request
       // Aborted，或者来自网络的数据没有达到等原因
@@ -187,17 +197,20 @@ void HttpData::handleRead() {
 
     if (state_ == STATE_PARSE_URI) {
       URIState flag = this->parseURI();
-      if (flag == PARSE_URI_AGAIN)
-        break;
+      if (flag == PARSE_URI_AGAIN){
+         break;
+      }
       else if (flag == PARSE_URI_ERROR) {
-        perror("2");
+        perror("httpdata.cpp perror_hhss 2:");
         LOG << "FD = " << fd_ << "," << inBuffer_ << "******";
         inBuffer_.clear();
         error_ = true;
         handleError(fd_, 400, "Bad Request");
         break;
-      } else
+      } else{
         state_ = STATE_PARSE_HEADERS;
+      }
+        
     }
     if (state_ == STATE_PARSE_HEADERS) {
       HeaderState flag = this->parseHeaders();
@@ -217,9 +230,17 @@ void HttpData::handleRead() {
       }
     }
     if (state_ == STATE_RECV_BODY) {
+    //todo 
       int content_length = -1;
-      if (headers_.find("Content-length") != headers_.end()) {
-        content_length = stoi(headers_["Content-length"]);
+      //todo 
+      /*for(auto it=headers_.begin();it!=headers_.end();++it){
+      
+        cout<<it->first<<" : "<<it->second<<endl;
+      }*/
+      if (headers_.find("Content-Length") != headers_.end()) {
+        content_length = atoi(headers_["Content-Length"].c_str());
+        //todo
+
       } else {
         // cout << "(state_ == STATE_RECV_BODY)" << endl;
         error_ = true;
@@ -245,13 +266,15 @@ void HttpData::handleRead() {
   if (!error_) {
     if (outBuffer_.size() > 0) {
       handleWrite();
-      // events_ |= EPOLLOUT;
+      //events_ |= EPOLLOUT;
     }
-    // error_ may change
+    // error_ may change 直到读完为止 errno=eagain
     if (!error_ && state_ == STATE_FINISH) {
       this->reset();
       if (inBuffer_.size() > 0) {
-        if (connectionState_ != H_DISCONNECTING) handleRead();
+        if (connectionState_ != H_DISCONNECTING){
+        handleRead();
+        } 
       }
 
       // if ((keepAlive_ || inBuffer_.size() > 0) && connectionState_ ==
@@ -263,17 +286,25 @@ void HttpData::handleRead() {
     } else if (!error_ && connectionState_ != H_DISCONNECTED)
       events_ |= EPOLLIN;
   }
+  //handleRead：end---->消息解析完毕------------------
 }
 
 void HttpData::handleWrite() {
   if (!error_ && connectionState_ != H_DISCONNECTED) {
     __uint32_t &events_ = channel_->getEvents();
+
     if (writen(fd_, outBuffer_) < 0) {
       perror("writen");
       events_ = 0;
       error_ = true;
     }
-    if (outBuffer_.size() > 0) events_ |= EPOLLOUT;
+
+    if (outBuffer_.size() > 0){
+    //writen(fd_, outBuffer_);
+    events_ |= EPOLLOUT;
+    }else{
+      events_ &= (~EPOLLOUT);
+    }
   }
 }
 
@@ -349,8 +380,9 @@ URIState HttpData::parseURI() {
 
   // filename
   pos = request_line.find("/", pos);
+
   if (pos < 0) {
-    fileName_ = "index.html";
+    fileName_ = "base.html";
     HTTPVersion_ = HTTP_11;
     return PARSE_URI_SUCCESS;
   } else {
@@ -367,7 +399,7 @@ URIState HttpData::parseURI() {
       }
 
       else
-        fileName_ = "index.html";
+        fileName_ = "base.html";
     }
     pos = _pos;
   }
@@ -473,41 +505,132 @@ HeaderState HttpData::parseHeaders() {
     }
   }
   if (hState_ == H_END_LF) {
-    str = str.substr(i);
+    str = str.substr(i-1);
+
+    //todo 
+    if(str.size()>0) parseBody(str);
     return PARSE_HEADER_SUCCESS;
   }
   str = str.substr(now_read_line_begin);
   return PARSE_HEADER_AGAIN;
 }
+//新增加的 http body请求 ----------begin---------------------
+bool HttpData::parseBody(string &text) {
+    string processd = "";
+    string strleft = text;
+    while (true)
+    {
+        processd = strleft.substr(0, strleft.find("&"));
+        m_map[processd.substr(0, processd.find("="))] = processd.substr(processd.find("=") + 1);
+        strleft = strleft.substr(strleft.find("&") + 1);
+        if (strleft == processd)
+            break;
+    }
+    return true;
+}
+//新增加的 http body请求 ----------end---------------------
+
 
 AnalysisState HttpData::analysisRequest() {
+
+//新增加的 http网页post请求 ----------begin---------------------
+//analysisRequest：end---->消息相应制作开始-----------------------
   if (method_ == METHOD_POST) {
-    // ------------------------------------------------------
-    // My CV stitching handler which requires OpenCV library
-    // ------------------------------------------------------
-    // string header;
-    // header += string("HTTP/1.1 200 OK\r\n");
-    // if(headers_.find("Connection") != headers_.end() &&
-    // headers_["Connection"] == "Keep-Alive")
-    // {
-    //     keepAlive_ = true;
-    //     header += string("Connection: Keep-Alive\r\n") + "Keep-Alive:
-    //     timeout=" + to_string(DEFAULT_KEEP_ALIVE_TIME) + "\r\n";
-    // }
-    // int length = stoi(headers_["Content-length"]);
-    // vector<char> data(inBuffer_.begin(), inBuffer_.begin() + length);
-    // Mat src = imdecode(data, CV_LOAD_IMAGE_ANYDEPTH|CV_LOAD_IMAGE_ANYCOLOR);
-    // //imwrite("receive.bmp", src);
-    // Mat res = stitch(src);
-    // vector<uchar> data_encode;
-    // imencode(".png", res, data_encode);
-    // header += string("Content-length: ") + to_string(data_encode.size()) +
-    // "\r\n\r\n";
-    // outBuffer_ += header + string(data_encode.begin(), data_encode.end());
-    // inBuffer_ = inBuffer_.substr(length);
-    // return ANALYSIS_SUCCESS;
-  } else if (method_ == METHOD_GET || method_ == METHOD_HEAD) {
     string header;
+    string filename;
+    string postmsg="";
+    header += "HTTP/1.1 200 OK\r\n";
+
+    redis_clt *m_redis = redis_clt::getinstance();
+        if (fileName_ == "base.html" || fileName_ == "") //如果来自于登录界面
+        {
+            //处理登录请求
+            //cout << "处理登录请求" << endl;
+            //cout << "user's passwd: " << m_redis->getUserpasswd(m_map["username"]) << endl;
+            //cout << "we got : " << m_map["passwd"] << endl;
+            if (m_redis->getUserpasswd(m_map["username"]) == m_map["passwd"])
+            {
+                //cout << "登录进入欢迎界面" << endl;
+                if (m_redis->getUserpasswd(m_map["username"]) == "root")
+                    filename = "./pages/welcomeroot.html"; //登录进入欢迎界面
+                else
+                    filename = "./pages/welcome.html"; //登录进入欢迎界面
+            }
+            else
+            {
+                //cout << "登录失败界面" << endl;
+                filename = "./pages/error.html"; //进入登录失败界面
+            }
+        }
+        else if (fileName_ == "register.html") //如果来自注册界面
+        {
+            m_redis->setUserpasswd(m_map["username"], m_map["passwd"]);
+            //cout << "set:" << m_map["username"]<<"passwd:  "<<m_map["passwd"] << endl;
+            filename = "./pages/register.html"; //注册后进入初始登录界面
+        }
+        else if (fileName_== "welcome.html") //如果来自登录后界面
+        {
+            //cout << "get a vote ask:  "<<m_map["votename"] << endl;
+            m_redis->vote(m_map["votename"]);
+            
+            //postmsg = "";
+            return ANALYSIS_SUCCESS;
+            //filename = "./pages/welcome.html"; //进入初始登录界面
+        }
+        else if (fileName_ == "getvote") //如果主页要请求投票
+        {
+            //读取redis
+            //cout << "get read vote !" << endl;
+
+            postmsg = m_redis->getvoteboard();
+            //cout << postmsg << endl;
+            
+        }
+        else
+        {
+            filename = "./pages/base.html"; //进入初始登录界面
+        }
+        /*body=------------------------------------------------*/
+        if (postmsg != ""){
+           
+            if(postmsg.length() < 20) cout <<"wrong pstmsg : "<< postmsg << endl;
+                
+            header += "Content-Type: html\r\n";
+            header += "Content-Length: " + to_string(strlen(postmsg.c_str())) + "\r\n";
+            header += "Server: hhss's Web Server\r\n";
+            // 头部结束
+            header += "\r\n";
+            outBuffer_ += header;
+            outBuffer_ +=postmsg;
+            
+            
+        }else{
+            int fd = open(filename.c_str(), O_RDONLY);
+            stat(filename.c_str(), &m_file_stat);
+            char *file_content = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+            
+            header += "Content-Type: html\r\n";
+            header += "Content-Length: " + to_string(strlen(file_content)) + "\r\n";
+            header += "Server: hhss's Web Server\r\n";
+            // 头部结束
+            header += "\r\n";
+            outBuffer_ += header;
+            outBuffer_ +=file_content;
+        
+        }
+                /*body=------------------------------------------*/
+        
+        
+        
+        
+
+//新增加的 http网页 post请求 ----------end---------------------
+    return ANALYSIS_SUCCESS;
+    
+  } else if (method_ == METHOD_GET || method_ == METHOD_HEAD) {
+  //新增加的 http网页 get请求 ----------begin---------------------
+    string header;
+    string filename;
     header += "HTTP/1.1 200 OK\r\n";
     if (headers_.find("Connection") != headers_.end() &&
         (headers_["Connection"] == "Keep-Alive" ||
@@ -516,83 +639,58 @@ AnalysisState HttpData::analysisRequest() {
       header += string("Connection: Keep-Alive\r\n") + "Keep-Alive: timeout=" +
                 to_string(DEFAULT_KEEP_ALIVE_TIME) + "\r\n";
     }
-    int dot_pos = fileName_.find('.');
-    string filetype;
-    if (dot_pos < 0)
-      filetype = MimeType::getMime("default");
-    else
-      filetype = MimeType::getMime(fileName_.substr(dot_pos));
-
-    // echo test
-    if (fileName_ == "hello") {
-      outBuffer_ =
-          "HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n\r\nHello World";
-      return ANALYSIS_SUCCESS;
+   filename = "./pages/";
+   if (fileName_ == "base.html"||fileName_==""){
+        filename+="base.html";
+    }else{//如果来自注册界面
+          filename += fileName_; //注册后进入初始登录界面
     }
-    if (fileName_ == "favicon.ico") {
-      header += "Content-Type: image/png\r\n";
-      header += "Content-Length: " + to_string(sizeof favicon) + "\r\n";
-      header += "Server: LinYa's Web Server\r\n";
+   
+    
+    int fd = open(filename.c_str(), O_RDONLY);
+    if(fd<0) {
+        handleError(fd_, 400, "Bad Request");
+        return ANALYSIS_ERROR;
+    } 
 
-      header += "\r\n";
-      outBuffer_ += header;
-      outBuffer_ += string(favicon, favicon + sizeof favicon);
-      ;
-      return ANALYSIS_SUCCESS;
+    stat(filename.c_str(), &m_file_stat);
+    char *file_content = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if(fileName_.substr(fileName_.find('.')+1)=="png"){
+        header += "Content-Type: png\r\n";
+    }else{
+        header += "Content-Type: html\r\n";
     }
-
-    struct stat sbuf;
-    if (stat(fileName_.c_str(), &sbuf) < 0) {
-      header.clear();
-      handleError(fd_, 404, "Not Found!");
-      return ANALYSIS_ERROR;
-    }
-    header += "Content-Type: " + filetype + "\r\n";
-    header += "Content-Length: " + to_string(sbuf.st_size) + "\r\n";
-    header += "Server: LinYa's Web Server\r\n";
+    //cout<<fileName_<<" length is "<<m_file_stat.st_size<<endl;
+    header += "Content-Length: " + to_string(m_file_stat.st_size) + "\r\n";
+    header += "Server: hhss's Web Server\r\n";
     // 头部结束
     header += "\r\n";
     outBuffer_ += header;
 
-    if (method_ == METHOD_HEAD) return ANALYSIS_SUCCESS;
+    outBuffer_ +=string(file_content,m_file_stat.st_size);
 
-    int src_fd = open(fileName_.c_str(), O_RDONLY, 0);
-    if (src_fd < 0) {
-      outBuffer_.clear();
-      handleError(fd_, 404, "Not Found!");
-      return ANALYSIS_ERROR;
-    }
-    void *mmapRet = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, src_fd, 0);
-    close(src_fd);
-    if (mmapRet == (void *)-1) {
-      munmap(mmapRet, sbuf.st_size);
-      outBuffer_.clear();
-      handleError(fd_, 404, "Not Found!");
-      return ANALYSIS_ERROR;
-    }
-    char *src_addr = static_cast<char *>(mmapRet);
-    outBuffer_ += string(src_addr, src_addr + sbuf.st_size);
-    ;
-    munmap(mmapRet, sbuf.st_size);
-    return ANALYSIS_SUCCESS;
+  //新增加的 http网页get请求 ----------end---------------------
+  
+  
+  //analysisRequest：end---->消息相应制作结束------
+  return ANALYSIS_SUCCESS;
   }
-  return ANALYSIS_ERROR;
 }
 
 void HttpData::handleError(int fd, int err_num, string short_msg) {
   short_msg = " " + short_msg;
   char send_buff[4096];
   string body_buff, header_buff;
-  body_buff += "<html><title>哎~出错了</title>";
+  body_buff += "<html><title>访问出错了～</title>";
   body_buff += "<body bgcolor=\"ffffff\">";
   body_buff += to_string(err_num) + short_msg;
-  body_buff += "<hr><em> LinYa's Web Server</em>\n</body></html>";
+  body_buff += "<hr><em> hhss's Web Server</em>\n</body></html>";
 
   header_buff += "HTTP/1.1 " + to_string(err_num) + short_msg + "\r\n";
   header_buff += "Content-Type: text/html\r\n";
   header_buff += "Connection: Close\r\n";
   header_buff += "Content-Length: " + to_string(body_buff.size()) + "\r\n";
-  header_buff += "Server: LinYa's Web Server\r\n";
+  header_buff += "Server: hhss's Web Server\r\n";
   ;
   header_buff += "\r\n";
   // 错误处理不考虑writen不完的情况

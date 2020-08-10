@@ -1,0 +1,83 @@
+<html>
+<script src="js/jquery.min.js"></script>
+<script>
+    function vote() {
+        for (var i = 0; i < document.getElementsByName("option").length; i++) {
+            if (document.getElementsByName("option")[i].checked == true) {
+                console.log(document.getElementsByName("option")[i].value);
+                $.post("/welcome.html", { 'votename': document.getElementsByName("option")[i].value }, function (data, status) { });
+            }
+        }
+    }
+</script>
+
+<div style="text-align:center;font-size: 50px;">
+    <b>Vote for your favorate character!</b>
+    <br>
+    <br>
+</div>
+
+<body>
+    <div style="text-align:center;font-size: 40px;">
+        <tr>
+            <td>
+                <img src="./Luffy.jpeg" title="Luffy" height="200" width="140" />
+                <b><input type="radio" name="option" checked="checked" value="Luffy" style="width :30px;height:30px"
+                        ; />Luffy</b>
+            </td>
+            <td>
+                <img src="./Zoro.jpeg" title="Zoro" height="200" width="140" />
+                <b><input type="radio" name="option" value="Zoro" style="width :30px;height:30px" ; />Zoro</b>
+            </td>
+            <td>
+                <img src="./Usopp.jpeg" title="Usopp" height="200" width="140" />
+                <b><input type="radio" name="option" value="Usopp" style="width :30px;height:30px" ; />Usopp</b>
+            </td>
+        </tr>
+        <br>
+        <tr>
+            <td>
+                <img src="./Sanji.jpeg" title="Sanji" height="200" width="140" />
+                <b><input type="radio" name="option" value="Sanji" style="width :30px;height:30px" ; />Sanji</b>
+            </td>
+            <td>
+                <img src="./Chopper.jpeg" title="Chopper" height="200" width="140" />
+                <b><input type="radio" name="option" value="Chopper" style="width :30px;height:30px" ; />Chopper</b>
+            </td>
+            <td>
+                <img src="./Robin.jpeg" title="Robin" height="200" width="140" />
+                <b><input type="radio" name="option" value="Robin" style="width :30px;height:30px"
+                        ; />Robin</b>
+
+            </td>
+        </tr>
+        <br>
+        <tr>
+            <td>
+                <img src="./Franky.jpeg" title="Franky" height="200" width="140" />
+                <b><input type="radio" name="option" value="Franky" style="width :30px;height:30px" ; />Franky</b>
+            </td>
+            <td>
+                <img src="./Nami.jpeg" title="Nami" height="200" width="140" />
+                <b><input type="radio" name="option" value="Nami" style="width :30px;height:30px"
+                        ; />Nami</b>
+
+            </td>
+            <td>
+                <img src="./Brook.jpeg" title="Brook" height="200" width="140" />
+                <b><input type="radio" name="option" value="Brook" style="width :30px;height:30px"
+                        ; />Brook</b>
+
+            </td>
+        </tr>
+        <br>
+        <br>
+        <button type="button" onclick="vote()" style="text-align:center;font-size: 50px;">vote</button>
+
+    </div>
+    <br>
+    <h1 style="text-align:center;font-size: 50px;"><a href="./base.html">back</a></h1>
+
+</body>
+
+</html>

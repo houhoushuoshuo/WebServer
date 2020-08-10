@@ -12,4 +12,4 @@ mkdir -p $BUILD_DIR/$BUILD_TYPE \
             -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
             $SOURCE_DIR \
     && make $*
-cp -r $SOURCE_DIR/WebServer/pages ./WebServer/pages
+cp -r $SOURCE_DIR/webServer/pages ./webServer/pages

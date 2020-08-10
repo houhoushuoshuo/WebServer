@@ -1,5 +1,12 @@
 环境：ubunut18.04、g++ 7.0
-使用：进入WebServer直接cmake
+使用：
+（1）
+cd WebServer
+sh build.sh
+cd ../build/Debug/webServer
+./WebServer -p 9999  【-p 指定端口，-l 指定log存储位置】
+（2）
+之后就可以在网页搜索栏输入127.0.0.1:9999进入投票系统了
 
 特点：
 整体使用Reactor模式，epoll的ET模式触发，且非阻塞io，server主线程只负责接受连接，然后发放到其他线程中。
@@ -9,4 +16,5 @@
 实现了异步日志，同时加入了双缓冲。
 可以解析http请求，支持管线化。
 可以利用eventfd进行异步唤醒线程。
+后台使用redis存储账户密码和投票信息。
 

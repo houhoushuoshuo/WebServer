@@ -198,6 +198,7 @@ void HttpData::handleRead() {
     if (state_ == STATE_PARSE_URI) {
       URIState flag = this->parseURI();
       if (flag == PARSE_URI_AGAIN){
+         handleError(fd_, 400, "Bad Request");
          break;
       }
       else if (flag == PARSE_URI_ERROR) {
@@ -350,7 +351,7 @@ URIState HttpData::parseURI() {
   string &str = inBuffer_;
   string cop = str;
   // 读到完整的请求行再开始解析请求
-  size_t pos = str.find('\r', nowReadPos_);
+  int pos = str.find('\r', nowReadPos_);
   if (pos < 0) {
     return PARSE_URI_AGAIN;
   }
